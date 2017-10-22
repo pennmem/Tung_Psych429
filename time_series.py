@@ -15,6 +15,7 @@ import scipy.stats as scs
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import seaborn as sns
+#import feather
 
 
 sns.set_style('whitegrid')
@@ -66,12 +67,22 @@ fig.savefig('white_noise.pdf', dpi = 500)
 # AR models
 np.random.seed(1)
 n_samples = int(1000)
-a = 0.6
+a = 1.0
 x = w = np.random.normal(size=n_samples)
 
 for t in range(n_samples):
     x[t] = a * x[t - 1] + w[t]
 
+
+
 plot_ar = tsplot(x, lags=30)
 plot_ar.suptitle('AR Model')
-plot_ar.savefig('ar_model_simulated.pdf', dpi = 500)
+plot_ar.savefig('ar_model_simulated_non_stationary.pdf', dpi = 500)
+
+
+# fr1 data
+dir = '/Volumes/RHINO/scratch/tphan/fr1_raw/R1065J/raw/0'
+all_files = os.listdir(dir)
+data = feather
+
+
