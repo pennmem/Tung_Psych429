@@ -1,138 +1,151 @@
-
-### Leave-one-session out cross validation
-from sklearn.externals import joblib
-from sklearn import linear_model
-import seaborn as sns
-import statsmodels.api as sm
-import statsmodels.formula.api as smf
 import pandas as pd
-from math import sqrt
 import numpy as np
-from scipy.stats.mstats import zscore
-from sklearn.linear_model import LogisticRegression
-from sklearn import svm # svm
-#import xgboost as xgb  # xgboost
-#import deepdish as dd
-import os
-import shutil
-import scipy.io as sio
-import sys
-import json
 import matplotlib.pyplot as plt
-import re
 
-from sklearn.cluster import KMeans
-from mpl_toolkits.mplot3d import Axes3D
-
-import scipy
-
-import collections
-
-import sklearn
-import os.path as op
-import nibabel as nib
-from numpy.random import permutation
-from matplotlib import cm
-import matplotlib as mpl
-from nibabel.freesurfer import read_label
-from surfer import Brain
-from surfer.io import read_stc
-
-
-import seaborn as sns
-
-from sklearn.externals import joblib
-
-mount_point = '/Volumes/RHINO'  # rhino mount point
-
-# read in data (warning: some subjects might not have all of the data but most should)
-# i have some precomputed data saved in these directories but feel free to use your own data
-subjects = np.sort(os.listdir(mount_point+ '/scratch/tphan/frequency_selection/'))  # get all subjects
-
-subject = "R1065J"
-
-
-subject_dir = mount_point + '/scratch/tphan/frequency_selection/' + subject + '/'
-# subject_dir_long = mount_point +  '/scratch/tphan/CatFR1_reports_long/' + subject + '/'
-dataset_dir = subject_dir + subject + '-dataset_current_freqs.pkl'
-bipolar_dir = subject_dir + subject + '-bp_tal_structs.pkl'
-
-
-dataset = joblib.load(dataset_dir)
-
-y = dataset['recalled']
-event_sessions = dataset['sess']
-n_sess = len(np.unique(event_sessions))
-list_sessions = dataset['list']
-bp_tal_structs = dataset['bp_tal_structs']
-N_frequency = 8
-
-serialpos = dataset['serialpos']
-pow_mat = dataset['pow-mat']
-#pow_mat = normalize_sessions(pow_mat, event_sessions)
-total_elec = int(pow_mat.shape[1]/8)
-
-
-frequencies = np.logspace(np.log10(3), np.log10(180), 8)
+data = pd.read_csv('power_frequency.csv')
+data = data.drop(data.columns[0], axis = 1)
 
 
 
-pow_mat_elec = pow_mat[:,:8]
-pow_mat_elec_vec = pow_mat_elec.T.reshape((1800*8,1))
-
-data = pd.DataFrame(pow_mat_elec_vec, columns = ['log_pow'])
-data['log_frequency'] = np.repeat(np.log10(frequencies),1800)
-
-
+r2.0 = function(sig){
+  x <- seq(1,10,length.out = 100)        # our predictor
+  y <- 2 + 1.2*x + rnorm(100,0,sd = sig) # our response; a function of x plus some random noise
+  summary(lm(y ~ x))$r.squared           # print the R-squared value
+}
 
 
+# pitfalls of R
+# R^2 can be made small by inceasing sigma^2
+def r2(sig):
+    x= np.arange(1,10, step = 0.1)
+    y = 0.5 + 1.2*x + np.random.normal(0,sig, len(x))
 
-import seaborn as sns
+    data = pd.DataFrame({'x':x, 'y':y})
+    model = ols('y ~ x',data).fit()
+    r2 = model.rsquared
+    return r2
 
-fig = plt.figure(figsize = (7,5))
-ax = plt.subplot(111)
-sns.regplot('log_frequency','log_pow', data = data, label = 'obs', ax = ax, ci = 95, scatter_kws = {'s':20}, line_kws = {'lw':4})
+sig_vec = np.arange(1,10, step = 1)
+r2_vec = [r2(sig) for sig in sig_vec]
+
+plt.plot(sig_vec, r2_vec,  '-o')
+
+plt.xlabel('sig')
+plt.ylabel('r2')
+
+
+# R^2 close to 1 when model is wrong
+sig = 0.1
+x= np.arange(1,10, step = 0.1)
+y = 0.5 + 1.2*pow(x,2) + np.random.normal(0,sig, len(x))
+data = pd.DataFrame({'x':x, 'y':y})
+model = ols('y ~ x', data).fit()
+r2 = model.rsquared
+print(r2)
+
+# Good R^2 but bad model
+alpha_est, b_est = model.params
+plt.plot(x,y, 'o', color = 'indigo')
+plt.plot(x, alpha_est + b_est*x, color = 'red', label = 'LS')
+
+# Changing the range of X
+sig = 0.9
+x1= np.arange(1,10, step = 0.1)
+y1 = 0.5 + 1.2*x1 + np.random.normal(0,sig, len(x1))
+data = pd.DataFrame({'x1':x1, 'y1':y1})
+model = ols('y1 ~ x1', data).fit()
+r2_long = model.rsquared
+
+
+sig = 0.9
+x2= np.arange(1,2, step = 0.01)
+y2 = 0.5 + 1.2*x2 + np.random.normal(0,sig, len(x2))
+data = pd.DataFrame({'x2':x2, 'y2':y2})
+model = ols('y2 ~ x2', data).fit()
+r2_short = model.rsquared
+
+plt.plot(x1, y1, color = 'green', label = 'r2 = ' + str(round(r2_long,3)))
+plt.plot(x2, y2,color = 'red', label = 'r2 = ' + str(round(r2_short,3)))
+plt.legend()
+
+
+
+
+from statsmodels.formula.api import ols
+model = ols("log_pow ~ log_frequency", data).fit()
+# get model parameters
+print(model.params)
+print(model.summary())
+
+
+
+
+
 
 
 from sklearn import linear_model
 reg = linear_model.LinearRegression()
-
 X = data['log_frequency'].values.reshape((len(data['log_pow']),1))
 y = data['log_pow'].values
-
 model = reg.fit(X, y)
 b_est = model.coef_
+alpha_est = model.intercept_
 
-sns.set(style = 'whitegrid')
-sns.residplot('log_frequency', 'log_pow', data = data, label = 'residual', ax = ax, scatter_kws = {'s':20}, color = 'red')
+
+fig = plt.figure(figsize = (7,5))
+ax = plt.subplot(111)
+
+ax.scatter(X,y, label = 'observation')
+ax.plot(X, alpha_est + b_est*X, color = 'red', label = 'LS')
 ax.legend(fontsize =14)
-ax.axhline(y = 0, color = 'red', lw = 4, linestyle = 'dashed')
 
 ax.tick_params(labelsize = 13)
 ax.set_xlabel('Log Frequency', fontsize = 13)
 ax.set_ylabel('Log Power', fontsize = 13)
 ax.set_title('R1065J')
+ax.text(1.75,8,'y =' + str(round(alpha_est,2)) + str(round(b_est,2)) + '*x' ,size=12)
 
-fig.savefig('pow_vs_frequency.pdf', dpi = 500)
+
+#fig.savefig('pow_vs_frequency.pdf', dpi = 500)
+#sns.set(style = 'whitegrid')
+#sns.residplot('log_frequency', 'log_pow', data = data, label = 'residual', ax = ax, scatter_kws = {'s':20}, color = 'red')
 
 
 from statsmodels.formula.api import ols
 model = ols("log_pow ~ log_frequency", data).fit()
+# get model parameters
+print(model.params)
 print(model.summary())
-b_est = model.coef_
 
-# F test
+# Get all the good stuffs
+dir(model)
+mse_model = model.mse_model
+mse_resid = model.mse_resid
+mse_total = model.mse_total
+df_model = model.df_model
+df_resid = model.df_resid
+df_total = model.nobs -1
+
+# get sum of squares
+tss = mse_total*df_total
+rss = mse_resid*df_resid
+mss = mse_model*df_model
+tss == mss + rss
+
+# f_test
+F_stat = mse_model/mse_resid
+
 model.f_test("log_frequency =0")
 R = [[0 , 1]]
 model.f_test(R)
 
 
 # observations bootstrap
-
 N = data.shape[0]
 B = 1000
 b_boot_obs = np.zeros(B)
 b_boot_resid = np.zeros(B)
+
 
 
 # residual sampling
@@ -157,8 +170,8 @@ for b in np.arange(B):
 
 fig = plt.figure(figsize = (7,5))
 ax = plt.subplot(111)
-sns.distplot(b_boot_obs, label = 'observation resampling', ax = ax, color = 'yellow')
-sns.distplot(b_boot_resid, label = 'residual resampling', ax = ax, color = 'grey')
+ax.hist(b_boot_obs, label = 'observation resampling', facecolor = 'yellow', alpha = 0.75, bins = 50)
+ax.hist(b_boot_resid, label = 'residual resampling', facecolor = 'grey', alpha = 0.75, bins = 50)
 ax.axvline(x = b_est, color = 'red', lw = 4)
 
 ax.tick_params(labelsize = 13)
